@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивный редактор сайта</title>
+    <style>
+        :root {
+            --bg-color: #f5f5f5;
+            --text-color: #333;
+            --card-bg: #ffffff;
+            --card-shadow: rgba(0, 0, 0, 0.1);
+            --accent-color: #4a6fa5;
+            --button-bg: #4a6fa5;
+            --button-text: #ffffff;
+        }
+
+        .dark-theme {
+            --bg-color: #1a1a2e;
+            --text-color: #e6e6e6;
+            --card-bg: #16213e;
+            --card-shadow: rgba(0, 0, 0, 0.3);
+            --accent-color: #0f3460;
+            --button-bg: #0f3460;
+            --button-text: #e6e6e6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(74, 111, 165, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(15, 52, 96, 0.1) 0%, transparent 20%);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--accent-color);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--accent-color);
+        }
+
+        .theme-toggle {
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .theme-toggle:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .edit-toggle {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 10px var(--card-shadow);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .edit-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 50px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px var(--card-shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card.editable {
+            border: 2px dashed var(--accent-color);
+        }
+
+        .card h2 {
+            margin-bottom: 15px;
+            color: var(--accent-color);
+        }
+
+        .card p {
+            margin-bottom: 15px;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            padding: 30px;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-color);
+            cursor: pointer;
+        }
+
+        .edit-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100%;
+            background-color: var(--card-bg);
+            box-shadow: -5px 0 15px var(--card-shadow);
+            padding: 30px;
+            overflow-y: auto;
+            transition: right 0.3s ease;
+            z-index: 999;
+        }
+
+        .edit-panel.active {
+            right: 0;
+        }
+
+        .edit-panel h2 {
+            margin-bottom: 20px;
+            color: var(--accent-color);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid var(--accent-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .btn {
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+
+        .card-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: none;
+        }
+
+        .editing .card-actions {
+            display: block;
+        }
+
+        .card-action-btn {
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-left: 5px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .image-upload {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 150px;
+            object-fit: contain;
+            border-radius: 5px;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .edit-panel {
+                width: 100%;
+                right: -100%;
+            }
+            
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Мой интерактивный сайт</h1>
+            <button class="theme-toggle" id="themeToggle">
+                <span id="themeIcon">🌙</span> <span id="themeText">Темная тема</span>
+            </button>
+        </header>
+
+        <main>
+            <div class="content" id="contentArea">
+                <!-- Карточки будут добавляться динамически -->
+                <div class="card" data-id="1">
+                    <h2>Добро пожаловать!</h2>
+                    <p>Это пример карточки. Вы можете редактировать содержимое, добавлять изображения и изменять внешний вид сайта.</p>
+                    <img src="https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" alt="Пример изображения" class="card-image">
+                    <div class="card-actions">
+                        <button class="card-action-btn edit-card">✏️</button>
+                        <button class="card-action-btn delete-card">🗑️</button>
+                    </div>
+                </div>
+                
+                <div class="card" data-id="2">
+                    <h2>О проекте</h2>
+                    <p>Этот сайт позволяет вам настраивать его внешний вид и содержимое. Используйте кнопку редактирования в правом нижнем углу, чтобы начать.</p>
+                    <img src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" alt="Пример изображения" class="card-image">
+                    <div class="card-actions">
+                        <button class="card-action-btn edit-card">✏️</button>
+                        <button class="card-action-btn delete-card">🗑️</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <button class="edit-toggle" id="editToggle">✏️</button>
+
+    <div class="edit-panel" id="editPanel">
+        <h2>Редактирование сайта</h2>
+        
+        <div class="form-group">
+            <label for="cardTitle">Заголовок карточки</label>
+            <input type="text" id="cardTitle" class="form-control" placeholder="Введите заголовок">
+        </div>
+        
+        <div class="form-group">
+            <label for="cardText">Текст карточки</label>
+            <textarea id="cardText" class="form-control" rows="4" placeholder="Введите текст"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="cardImage">Изображение</label>
+            <div class="image-upload">
+                <input type="file" id="cardImage" class="form-control" accept="image/*">
+                <img id="imagePreview" class="image-preview" src="" alt="Предпросмотр">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <button class="btn" id="addCardBtn">Добавить карточку</button>
+            <button class="btn" id="updateCardBtn" style="display: none;">Обновить карточку</button>
+            <button class="btn btn-danger" id="cancelEditBtn" style="display: none;">Отмена</button>
+        </div>
+        
+        <div class="form-group">
+            <h3>Управление карточками</h3>
+            <p>В режиме редактирования наведите на карточку, чтобы увидеть кнопки управления.</p>
+        </div>
+    </div>
+
+    <div class="modal" id="imageModal">
+        <div class="modal-content">
+            <button class="modal-close" id="modalClose">&times;</button>
+            <img src="" alt="" class="modal-image" id="modalImage">
+            <h2 id="modalTitle"></h2>
+            <p id="modalDescription"></p>
+        </div>
+    </div>
+
+    <script>
+        // Элементы DOM
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const themeText = document.getElementById('themeText');
+        const editToggle = document.getElementById('editToggle');
+        const editPanel = document.getElementById('editPanel');
+        const contentArea = document.getElementById('contentArea');
+        const addCardBtn = document.getElementById('addCardBtn');
+        const updateCardBtn = document.getElementById('updateCardBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const cardTitle = document.getElementById('cardTitle');
+        const cardText = document.getElementById('cardText');
+        const cardImage = document.getElementById('cardImage');
+        const imagePreview = document.getElementById('imagePreview');
+        const imageModal = document.getElementById('imageModal');
+        const modalClose = document.getElementById('modalClose');
+        const modalImage = document.getElementById('modalImage');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalDescription = document.getElementById('modalDescription');
+
+        // Переменные состояния
+        let isEditing = false;
+        let currentEditingCard = null;
+        let nextCardId = 3;
+
+        // Переключение темы
+        themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-theme');
+            
+            if (document.body.classList.contains('dark-theme')) {
+                themeIcon.textContent = '☀️';
+                themeText.textContent = 'Светлая тема';
+            } else {
+                themeIcon.textContent = '🌙';
+                themeText.textContent = 'Темная тема';
+            }
+        });
+
+        // Переключение режима редактирования
+        editToggle.addEventListener('click', () => {
+            isEditing = !isEditing;
+            document.body.classList.toggle('editing', isEditing);
+            editPanel.classList.toggle('active', isEditing);
+            
+            // Добавляем или удаляем класс editable для карточек
+            document.querySelectorAll('.card').forEach(card => {
+                card.classList.toggle('editable', isEditing);
+            });
+            
+            // Сбрасываем форму редактирования
+            resetEditForm();
+        });
+
+        // Предпросмотр изображения
+        cardImage.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                }
+                
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+
+        // Добавление новой карточки
+        addCardBtn.addEventListener('click', () => {
+            const title = cardTitle.value.trim();
+            const text = cardText.value.trim();
+            const imageSrc = imagePreview.src || '';
+            
+            if (!title) {
+                alert('Пожалуйста, введите заголовок карточки');
+                return;
+            }
+            
+            createCard(title, text, imageSrc);
+            resetEditForm();
+        });
+
+        // Обновление существующей карточки
+        updateCardBtn.addEventListener('click', () => {
+            if (!currentEditingCard) return;
+            
+            const title = cardTitle.value.trim();
+            const text = cardText.value.trim();
+            const imageSrc = imagePreview.src || currentEditingCard.querySelector('.card-image').src;
+            
+            if (!title) {
+                alert('Пожалуйста, введите заголовок карточки');
+                return;
+            }
+            
+            updateCard(currentEditingCard, title, text, imageSrc);
+            resetEditForm();
+        });
+
+        // Отмена редактирования
+        cancelEditBtn.addEventListener('click', resetEditForm);
+
+        // Закрытие модального окна
+        modalClose.addEventListener('click', () => {
+            imageModal.style.display = 'none';
+        });
+
+        // Закрытие модального окна при клике вне его
+        imageModal.addEventListener('click', (e) => {
+            if (e.target === imageModal) {
+                imageModal.style.display = 'none';
+            }
+        });
+
+        // Обработчики событий для карточек (делегирование)
+        contentArea.addEventListener('click', (e) => {
+            // Редактирование карточки
+            if (e.target.classList.contains('edit-card')) {
+                const card = e.target.closest('.card');
+                editCard(card);
+            }
+            
+            // Удаление карточки
+            if (e.target.classList.contains('delete-card')) {
+                const card = e.target.closest('.card');
+                if (confirm('Вы уверены, что хотите удалить эту карточку?')) {
+                    card.remove();
+                }
+            }
+            
+            // Открытие изображения в модальном окне
+            if (e.target.classList.contains('card-image')) {
+                const card = e.target.closest('.card');
+                const title = card.querySelector('h2').textContent;
+                const description = card.querySelector('p').textContent;
+                const imageSrc = e.target.src;
+                
+                openImageModal(imageSrc, title, description);
+            }
+        });
+
+        // Функции
+        function createCard(title, text, imageSrc) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.dataset.id = nextCardId++;
+            
+            card.innerHTML = `
+                <h2>${title}</h2>
+                <p>${text}</p>
+                ${imageSrc ? `<img src="${imageSrc}" alt="${title}" class="card-image">` : ''}
+                <div class="card-actions">
+                    <button class="card-action-btn edit-card">✏️</button>
+                    <button class="card-action-btn delete-card">🗑️</button>
+                </div>
+            `;
+            
+            contentArea.appendChild(card);
+            
+            // Добавляем класс editable, если мы в режиме редактирования
+            if (isEditing) {
+                card.classList.add('editable');
+            }
+        }
+
+        function editCard(card) {
+            currentEditingCard = card;
+            
+            const title = card.querySelector('h2').textContent;
+            const text = card.querySelector('p').textContent;
+            const image = card.querySelector('.card-image');
+            const imageSrc = image ? image.src : '';
+            
+            cardTitle.value = title;
+            cardText.value = text;
+            
+            if (imageSrc) {
+                imagePreview.src = imageSrc;
+                imagePreview.style.display = 'block';
+            } else {
+                imagePreview.style.display = 'none';
+            }
+            
+            addCardBtn.style.display = 'none';
+            updateCardBtn.style.display = 'inline-block';
+            cancelEditBtn.style.display = 'inline-block';
+        }
+
+        function updateCard(card, title, text, imageSrc) {
+            card.querySelector('h2').textContent = title;
+            card.querySelector('p').textContent = text;
+            
+            let image = card.querySelector('.card-image');
+            if (imageSrc) {
+                if (image) {
+                    image.src = imageSrc;
+                    image.alt = title;
+                } else {
+                    image = document.createElement('img');
+                    image.className = 'card-image';
+                    image.src = imageSrc;
+                    image.alt = title;
+                    card.querySelector('p').after(image);
+                }
+            } else if (image) {
+                image.remove();
+            }
+            
+            currentEditingCard = null;
+        }
+
+        function resetEditForm() {
+            cardTitle.value = '';
+            cardText.value = '';
+            cardImage.value = '';
+            imagePreview.style.display = 'none';
+            
+            addCardBtn.style.display = 'inline-block';
+            updateCardBtn.style.display = 'none';
+            cancelEditBtn.style.display = 'none';
+            
+            currentEditingCard = null;
+        }
+
+        function openImageModal(imageSrc, title, description) {
+            modalImage.src = imageSrc;
+            modalTitle.textContent = title;
+            modalDescription.textContent = description;
+            imageModal.style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
