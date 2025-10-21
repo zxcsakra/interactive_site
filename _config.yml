@@ -1,14 +1,32 @@
 title: "Интерактивный редактор сайта"
 description: "Сайт с переключением темы и редактируемым контентом"
 baseurl: ""
-url: "https://yourusername.github.io"
-github_username: yourusername
+url: "https://yourusername.github.io" # замените yourusername на ваш
 
-# Настройки Jekyll
+# Базовые настройки Jekyll
 markdown: kramdown
 theme: null
 plugins:
   - jekyll-feed
+  - jekyll-seo-tag
+
+# Настройки для безопасности
+safe: true
+whitelist:
+  - jekyll-feed
+  - jekyll-seo-tag
+
+# Исключения
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - .github/
+
+# Настройки сборки
+future: true
+timezone: Europe/Moscow
 
 # Кастомные настройки
 author: "Ваше Имя"
@@ -16,14 +34,4 @@ email: "your-email@example.com"
 default_theme: "light"
 
 # Настройки для GitHub Pages
-repository: "yourusername/yourusername.github.io"
-safe: true
-include:
-  - _pages
-exclude:
-  - Gemfile
-  - Gemfile.lock
-  - node_modules
-
-# Настройки доступа
-view_mode: true
+repository: "yourusername/yourusername.github.io" # замените на ваш
