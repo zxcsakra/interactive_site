@@ -1,0 +1,39 @@
+<div class="edit-panel" id="editPanel">
+    <h2>Редактирование сайта</h2>
+    
+    <div class="form-group">
+        <label for="cardTitle">Заголовок карточки</label>
+        <input type="text" id="cardTitle" class="form-control" placeholder="Введите заголовок">
+    </div>
+    
+    <div class="form-group">
+        <label for="cardText">Текст карточки</label>
+        <textarea id="cardText" class="form-control" rows="4" placeholder="Введите текст"></textarea>
+    </div>
+    
+    <div class="form-group">
+        <label for="cardImage">Изображение</label>
+        <div class="image-upload">
+            <input type="file" id="cardImage" class="form-control" accept="image/*">
+            <img id="imagePreview" class="image-preview" src="" alt="Предпросмотр">
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <button class="btn" id="addCardBtn">Добавить карточку</button>
+        <button class="btn" id="updateCardBtn" style="display: none;">Обновить карточку</button>
+        <button class="btn btn-danger" id="cancelEditBtn" style="display: none;">Отмена</button>
+    </div>
+    
+    <div class="form-group">
+        <h3>Управление карточками</h3>
+        <p>В режиме редактирования наведите на карточку, чтобы увидеть кнопки управления.</p>
+    </div>
+    
+    <div class="form-group">
+        <h3>Сохранение данных</h3>
+        <button class="btn" id="exportDataBtn">Экспорт данных</button>
+        <button class="btn" id="importDataBtn">Импорт данных</button>
+        <input type="file" id="importFile" accept=".json" style="display: none;">
+    </div>
+</div>
