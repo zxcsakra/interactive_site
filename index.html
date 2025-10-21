@@ -285,6 +285,24 @@
             display: none;
         }
 
+        .save-indicator {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1001;
+        }
+
+        .save-indicator.show {
+            opacity: 1;
+        }
+
         @media (max-width: 768px) {
             .edit-panel {
                 width: 100%;
@@ -293,6 +311,13 @@
             
             .content {
                 grid-template-columns: 1fr;
+            }
+            
+            .save-indicator {
+                bottom: 100px;
+                left: 20px;
+                right: 20px;
+                text-align: center;
             }
         }
     </style>
@@ -309,30 +334,12 @@
         <main>
             <div class="content" id="contentArea">
                 <!-- Карточки будут добавляться динамически -->
-                <div class="card" data-id="1">
-                    <h2>Добро пожаловать!</h2>
-                    <p>Это пример карточки. Вы можете редактировать содержимое, добавлять изображения и изменять внешний вид сайта.</p>
-                    <img src="https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" alt="Пример изображения" class="card-image">
-                    <div class="card-actions">
-                        <button class="card-action-btn edit-card">✏️</button>
-                        <button class="card-action-btn delete-card">🗑️</button>
-                    </div>
-                </div>
-                
-                <div class="card" data-id="2">
-                    <h2>О проекте</h2>
-                    <p>Этот сайт позволяет вам настраивать его внешний вид и содержимое. Используйте кнопку редактирования в правом нижнем углу, чтобы начать.</p>
-                    <img src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" alt="Пример изображения" class="card-image">
-                    <div class="card-actions">
-                        <button class="card-action-btn edit-card">✏️</button>
-                        <button class="card-action-btn delete-card">🗑️</button>
-                    </div>
-                </div>
             </div>
         </main>
     </div>
 
     <button class="edit-toggle" id="editToggle">✏️</button>
+    <div class="save-indicator" id="saveIndicator">Данные сохранены!</div>
 
     <div class="edit-panel" id="editPanel">
         <h2>Редактирование сайта</h2>
@@ -365,6 +372,13 @@
             <h3>Управление карточками</h3>
             <p>В режиме редактирования наведите на карточку, чтобы увидеть кнопки управления.</p>
         </div>
+        
+        <div class="form-group">
+            <h3>Сохранение данных</h3>
+            <button class="btn" id="exportDataBtn">Экспорт данных</button>
+            <button class="btn" id="importDataBtn">Импорт данных</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;">
+        </div>
     </div>
 
     <div class="modal" id="imageModal">
@@ -396,11 +410,22 @@
         const modalImage = document.getElementById('modalImage');
         const modalTitle = document.getElementById('modalTitle');
         const modalDescription = document.getElementById('modalDescription');
+        const saveIndicator = document.getElementById('saveIndicator');
+        const exportDataBtn = document.getElementById('exportDataBtn');
+        const importDataBtn = document.getElementById('importDataBtn');
+        const importFile = document.getElementById('importFile');
 
         // Переменные состояния
         let isEditing = false;
         let currentEditingCard = null;
-        let nextCardId = 3;
+        let nextCardId = 1;
+        let saveTimeout = null;
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            loadTheme();
+        });
 
         // Переключение темы
         themeToggle.addEventListener('click', () => {
@@ -409,11 +434,23 @@
             if (document.body.classList.contains('dark-theme')) {
                 themeIcon.textContent = '☀️';
                 themeText.textContent = 'Светлая тема';
+                localStorage.setItem('theme', 'dark');
             } else {
                 themeIcon.textContent = '🌙';
                 themeText.textContent = 'Темная тема';
+                localStorage.setItem('theme', 'light');
             }
         });
+
+        // Загрузка темы из localStorage
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-theme');
+                themeIcon.textContent = '☀️';
+                themeText.textContent = 'Светлая тема';
+            }
+        }
 
         // Переключение режима редактирования
         editToggle.addEventListener('click', () => {
@@ -457,6 +494,7 @@
             
             createCard(title, text, imageSrc);
             resetEditForm();
+            saveData();
         });
 
         // Обновление существующей карточки
@@ -465,7 +503,7 @@
             
             const title = cardTitle.value.trim();
             const text = cardText.value.trim();
-            const imageSrc = imagePreview.src || currentEditingCard.querySelector('.card-image').src;
+            const imageSrc = imagePreview.src || currentEditingCard.querySelector('.card-image')?.src || '';
             
             if (!title) {
                 alert('Пожалуйста, введите заголовок карточки');
@@ -474,6 +512,7 @@
             
             updateCard(currentEditingCard, title, text, imageSrc);
             resetEditForm();
+            saveData();
         });
 
         // Отмена редактирования
@@ -491,6 +530,48 @@
             }
         });
 
+        // Экспорт данных
+        exportDataBtn.addEventListener('click', () => {
+            const data = getSiteData();
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const url = URL.createObjectURL(dataBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'site-data.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showSaveIndicator('Данные экспортированы!');
+        });
+
+        // Импорт данных
+        importDataBtn.addEventListener('click', () => {
+            importFile.click();
+        });
+
+        importFile.addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        loadSiteData(data);
+                        showSaveIndicator('Данные импортированы!');
+                    } catch (error) {
+                        alert('Ошибка при импорте данных: неверный формат файла');
+                    }
+                }
+                
+                reader.readAsText(this.files[0]);
+                this.value = ''; // Сброс значения input
+            }
+        });
+
         // Обработчики событий для карточек (делегирование)
         contentArea.addEventListener('click', (e) => {
             // Редактирование карточки
@@ -504,6 +585,7 @@
                 const card = e.target.closest('.card');
                 if (confirm('Вы уверены, что хотите удалить эту карточку?')) {
                     card.remove();
+                    saveData();
                 }
             }
             
@@ -606,6 +688,103 @@
             modalTitle.textContent = title;
             modalDescription.textContent = description;
             imageModal.style.display = 'flex';
+        }
+
+        // Сохранение данных в localStorage
+        function saveData() {
+            const data = getSiteData();
+            localStorage.setItem('siteData', JSON.stringify(data));
+            
+            // Отложенное сохранение для GitHub (имитация)
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                showSaveIndicator('Данные сохранены!');
+            }, 500);
+        }
+
+        // Загрузка данных из localStorage
+        function loadData() {
+            const savedData = localStorage.getItem('siteData');
+            if (savedData) {
+                try {
+                    const data = JSON.parse(savedData);
+                    loadSiteData(data);
+                } catch (error) {
+                    console.error('Ошибка при загрузке данных:', error);
+                    // Создаем демо-карточки, если данных нет
+                    createDemoCards();
+                }
+            } else {
+                // Создаем демо-карточки, если данных нет
+                createDemoCards();
+            }
+        }
+
+        // Получение данных сайта
+        function getSiteData() {
+            const cards = [];
+            document.querySelectorAll('.card').forEach(card => {
+                const title = card.querySelector('h2').textContent;
+                const text = card.querySelector('p').textContent;
+                const image = card.querySelector('.card-image');
+                const imageSrc = image ? image.src : '';
+                
+                cards.push({
+                    title,
+                    text,
+                    imageSrc
+                });
+            });
+            
+            return {
+                cards,
+                nextCardId,
+                theme: document.body.classList.contains('dark-theme') ? 'dark' : 'light'
+            };
+        }
+
+        // Загрузка данных сайта
+        function loadSiteData(data) {
+            // Очищаем контент
+            contentArea.innerHTML = '';
+            nextCardId = 1;
+            
+            // Загружаем карточки
+            if (data.cards && data.cards.length > 0) {
+                data.cards.forEach(cardData => {
+                    createCard(cardData.title, cardData.text, cardData.imageSrc);
+                });
+            }
+            
+            // Обновляем nextCardId
+            if (data.nextCardId) {
+                nextCardId = data.nextCardId;
+            }
+        }
+
+        // Создание демо-карточек
+        function createDemoCards() {
+            createCard(
+                'Добро пожаловать!', 
+                'Это пример карточки. Вы можете редактировать содержимое, добавлять изображения и изменять внешний вид сайта.',
+                'https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80'
+            );
+            
+            createCard(
+                'О проекте', 
+                'Этот сайт позволяет вам настраивать его внешний вид и содержимое. Используйте кнопку редактирования в правом нижнем углу, чтобы начать.',
+                'https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80'
+            );
+        }
+
+        // Показать индикатор сохранения
+        function showSaveIndicator(message) {
+            saveIndicator.textContent = message;
+            saveIndicator.classList.add('show');
+            
+            setTimeout(() => {
+                saveIndicator.classList.remove('show');
+            }, 3000);
         }
     </script>
 </body>
