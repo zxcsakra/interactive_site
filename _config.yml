@@ -1,0 +1,19 @@
+# _config.yml
+title: "Мой интерактивный сайт"
+description: "Сайт с редактируемым контентом"
+baseurl: ""
+url: "https://yourusername.github.io"
+github_username: yourusername
+
+# Настройки сборки
+markdown: kramdown
+theme: minima
+plugins:
+  - jekyll-feed
+
+# Кастомные настройки
+author: "Ваше Имя"
+email: "your-email@example.com"
+
+# Настройки для нашего интерактивного сайта
+default_theme: "light"
