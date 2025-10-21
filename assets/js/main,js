@@ -28,200 +28,300 @@ let currentEditingCard = null;
 let nextCardId = 1;
 let saveTimeout = null;
 
+// Определяем режим (редактирование или просмотр)
+const isViewMode = determineViewMode();
+
 // Демо-данные
 const demoCards = [
     {
-        title: "Добро пожаловать!",
-        text: "Это пример карточки. Вы можете редактировать содержимое, добавлять изображения и изменять внешний вид сайта.",
+        title: "Добро пожаловать на мой сайт!",
+        text: "Это интерактивный сайт с возможностью редактирования контента. Вы можете добавлять карточки, изображения и переключать темы.",
         imageSrc: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80"
     },
     {
         title: "О проекте",
-        text: "Этот сайт позволяет вам настраивать его внешний вид и содержимое. Используйте кнопку редактирования в правом нижнем углу, чтобы начать.",
+        text: "Этот сайт создан с использованием Jekyll и GitHub Pages. Вы можете настроить его внешний вид и содержимое под свои нужды.",
         imageSrc: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        title: "Как использовать",
+        text: "Нажмите на кнопку редактирования в правом нижнем углу, чтобы начать настройку сайта. Добавляйте карточки, загружайте изображения и экспериментируйте!",
+        imageSrc: "https://images.unsplash.com/photo-1547658719-da2b51169166?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80"
     }
 ];
 
+// Функция определения режима
+function determineViewMode() {
+    // Проверяем параметры URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+    
+    // Проверяем хост (если не локальный хост, то режим просмотра)
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1';
+    
+    // Проверяем, есть ли права администратора
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
+    const hasEditPassword = localStorage.getItem('editPassword') === 'true';
+    
+    // Режим просмотра, если:
+    // 1. Явно указан параметр ?mode=view
+    // 2. Не локальный хост И нет прав администратора/пароля
+    // 3. Явно указан параметр ?mode=edit (принудительный режим редактирования)
+    
+    if (mode === 'edit') return false;
+    if (mode === 'view') return true;
+    if (!isLocalhost && !isAdmin && !hasEditPassword) return true;
+    
+    return false;
+}
+
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
-    loadData();
-    loadTheme();
+    initializeApp();
 });
 
-// Переключение темы
-themeToggle.addEventListener('click', () => {
-    document.body.classList.toggle('dark-theme');
-    
-    if (document.body.classList.contains('dark-theme')) {
-        themeIcon.textContent = '☀️';
-        themeText.textContent = 'Светлая тема';
-        localStorage.setItem('theme', 'dark');
+function initializeApp() {
+    if (isViewMode) {
+        enableViewMode();
     } else {
-        themeIcon.textContent = '🌙';
-        themeText.textContent = 'Темная тема';
-        localStorage.setItem('theme', 'light');
+        enableEditMode();
     }
     
-    saveData();
-});
+    loadData();
+    loadTheme();
+    setupGlobalEventListeners();
+}
 
-// Загрузка темы из localStorage
-function loadTheme() {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-        document.body.classList.add('dark-theme');
-        themeIcon.textContent = '☀️';
-        themeText.textContent = 'Светлая тема';
+// Включение режима просмотра
+function enableViewMode() {
+    document.body.classList.add('view-mode');
+    
+    // Создаем индикатор режима просмотра
+    createViewModeIndicator();
+    
+    console.log('🔒 Режим просмотра активирован');
+}
+
+// Включение режима редактирования
+function enableEditMode() {
+    document.body.classList.remove('view-mode');
+    
+    // Активируем все элементы редактирования
+    setupEditEventListeners();
+    
+    console.log('✏️ Режим редактирования активирован');
+}
+
+// Создание индикатора режима просмотра
+function createViewModeIndicator() {
+    const indicator = document.createElement('div');
+    indicator.className = 'view-mode-indicator';
+    indicator.innerHTML = `
+        <span>🔒 Режим просмотра</span>
+        <button id="requestEditAccess">
+            Запросить доступ
+        </button>
+    `;
+    document.body.appendChild(indicator);
+    
+    // Обработчик для запроса доступа
+    document.getElementById('requestEditAccess').addEventListener('click', () => {
+        requestEditAccess();
+    });
+}
+
+// Запрос доступа к редактированию
+function requestEditAccess() {
+    const password = prompt('Введите пароль для доступа к редактированию:');
+    
+    // Простой пароль (в реальном приложении используйте безопасную аутентификацию)
+    if (password === 'edit2024') {
+        localStorage.setItem('editPassword', 'true');
+        alert('Доступ разрешен! Страница будет перезагружена.');
+        window.location.search = '?mode=edit';
+    } else if (password) {
+        alert('Неверный пароль. Для демонстрации используйте: edit2024');
     }
 }
 
-// Переключение режима редактирования
-editToggle.addEventListener('click', () => {
-    isEditing = !isEditing;
-    document.body.classList.toggle('editing', isEditing);
-    editPanel.classList.toggle('active', isEditing);
-    
-    // Добавляем или удаляем класс editable для карточек
-    document.querySelectorAll('.card').forEach(card => {
-        card.classList.toggle('editable', isEditing);
-    });
-    
-    // Сбрасываем форму редактирования
-    resetEditForm();
-});
-
-// Предпросмотр изображения
-cardImage.addEventListener('change', function() {
-    if (this.files && this.files[0]) {
-        const reader = new FileReader();
+// Глобальные обработчики событий (работают в обоих режимах)
+function setupGlobalEventListeners() {
+    // Переключение темы (доступно в обоих режимах)
+    themeToggle.addEventListener('click', () => {
+        document.body.classList.toggle('dark-theme');
         
-        reader.onload = function(e) {
-            imagePreview.src = e.target.result;
-            imagePreview.style.display = 'block';
+        if (document.body.classList.contains('dark-theme')) {
+            themeIcon.textContent = '☀️';
+            themeText.textContent = 'Светлая тема';
+            localStorage.setItem('theme', 'dark');
+        } else {
+            themeIcon.textContent = '🌙';
+            themeText.textContent = 'Темная тема';
+            localStorage.setItem('theme', 'light');
         }
         
-        reader.readAsDataURL(this.files[0]);
-    }
-});
-
-// Добавление новой карточки
-addCardBtn.addEventListener('click', () => {
-    const title = cardTitle.value.trim();
-    const text = cardText.value.trim();
-    const imageSrc = imagePreview.src || '';
-    
-    if (!title) {
-        alert('Пожалуйста, введите заголовок карточки');
-        return;
-    }
-    
-    createCard(title, text, imageSrc);
-    resetEditForm();
-    saveData();
-});
-
-// Обновление существующей карточки
-updateCardBtn.addEventListener('click', () => {
-    if (!currentEditingCard) return;
-    
-    const title = cardTitle.value.trim();
-    const text = cardText.value.trim();
-    const imageSrc = imagePreview.src || currentEditingCard.querySelector('.card-image')?.src || '';
-    
-    if (!title) {
-        alert('Пожалуйста, введите заголовок карточки');
-        return;
-    }
-    
-    updateCard(currentEditingCard, title, text, imageSrc);
-    resetEditForm();
-    saveData();
-});
-
-// Отмена редактирования
-cancelEditBtn.addEventListener('click', resetEditForm);
-
-// Закрытие модального окна
-modalClose.addEventListener('click', () => {
-    imageModal.style.display = 'none';
-});
-
-// Закрытие модального окна при клике вне его
-imageModal.addEventListener('click', (e) => {
-    if (e.target === imageModal) {
-        imageModal.style.display = 'none';
-    }
-});
-
-// Экспорт данных
-exportDataBtn.addEventListener('click', () => {
-    const data = getSiteData();
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataBlob = new Blob([dataStr], {type: 'application/json'});
-    
-    const url = URL.createObjectURL(dataBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'site-data.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    showSaveIndicator('Данные экспортированы!');
-});
-
-// Импорт данных
-importDataBtn.addEventListener('click', () => {
-    importFile.click();
-});
-
-importFile.addEventListener('change', function(e) {
-    if (this.files && this.files[0]) {
-        const reader = new FileReader();
-        
-        reader.onload = function(e) {
-            try {
-                const data = JSON.parse(e.target.result);
-                loadSiteData(data);
-                showSaveIndicator('Данные импортированы!');
-            } catch (error) {
-                alert('Ошибка при импорте данных: неверный формат файла');
-            }
-        }
-        
-        reader.readAsText(this.files[0]);
-        this.value = ''; // Сброс значения input
-    }
-});
-
-// Обработчики событий для карточек (делегирование)
-contentArea.addEventListener('click', (e) => {
-    // Редактирование карточки
-    if (e.target.classList.contains('edit-card')) {
-        const card = e.target.closest('.card');
-        editCard(card);
-    }
-    
-    // Удаление карточки
-    if (e.target.classList.contains('delete-card')) {
-        const card = e.target.closest('.card');
-        if (confirm('Вы уверены, что хотите удалить эту карточку?')) {
-            card.remove();
+        if (!isViewMode) {
             saveData();
         }
-    }
-    
-    // Открытие изображения в модальном окне
-    if (e.target.classList.contains('card-image')) {
-        const card = e.target.closest('.card');
-        const title = card.querySelector('h2').textContent;
-        const description = card.querySelector('p').textContent;
-        const imageSrc = e.target.src;
+    });
+
+    // Закрытие модального окна
+    modalClose.addEventListener('click', () => {
+        imageModal.style.display = 'none';
+    });
+
+    // Закрытие модального окна при клике вне его
+    imageModal.addEventListener('click', (e) => {
+        if (e.target === imageModal) {
+            imageModal.style.display = 'none';
+        }
+    });
+
+    // Обработчики для открытия изображений (доступно в обоих режимах)
+    contentArea.addEventListener('click', (e) => {
+        // Открытие изображения в модальном окне
+        if (e.target.classList.contains('card-image')) {
+            const card = e.target.closest('.card');
+            const title = card.querySelector('h2').textContent;
+            const description = card.querySelector('p').textContent;
+            const imageSrc = e.target.src;
+            
+            openImageModal(imageSrc, title, description);
+        }
+    });
+}
+
+// Обработчики событий редактирования (только для режима редактирования)
+function setupEditEventListeners() {
+    // Переключение режима редактирования
+    editToggle.addEventListener('click', () => {
+        isEditing = !isEditing;
+        document.body.classList.toggle('editing', isEditing);
+        editPanel.classList.toggle('active', isEditing);
         
-        openImageModal(imageSrc, title, description);
-    }
-});
+        // Добавляем или удаляем класс editable для карточек
+        document.querySelectorAll('.card').forEach(card => {
+            card.classList.toggle('editable', isEditing);
+        });
+        
+        // Сбрасываем форму редактирования
+        resetEditForm();
+    });
+
+    // Предпросмотр изображения
+    cardImage.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                imagePreview.src = e.target.result;
+                imagePreview.style.display = 'block';
+            }
+            
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+
+    // Добавление новой карточки
+    addCardBtn.addEventListener('click', () => {
+        const title = cardTitle.value.trim();
+        const text = cardText.value.trim();
+        const imageSrc = imagePreview.src || '';
+        
+        if (!title) {
+            alert('Пожалуйста, введите заголовок карточки');
+            return;
+        }
+        
+        createCard(title, text, imageSrc);
+        resetEditForm();
+        saveData();
+    });
+
+    // Обновление существующей карточки
+    updateCardBtn.addEventListener('click', () => {
+        if (!currentEditingCard) return;
+        
+        const title = cardTitle.value.trim();
+        const text = cardText.value.trim();
+        const imageSrc = imagePreview.src || currentEditingCard.querySelector('.card-image')?.src || '';
+        
+        if (!title) {
+            alert('Пожалуйста, введите заголовок карточки');
+            return;
+        }
+        
+        updateCard(currentEditingCard, title, text, imageSrc);
+        resetEditForm();
+        saveData();
+    });
+
+    // Отмена редактирования
+    cancelEditBtn.addEventListener('click', resetEditForm);
+
+    // Экспорт данных
+    exportDataBtn.addEventListener('click', () => {
+        const data = getSiteData();
+        const dataStr = JSON.stringify(data, null, 2);
+        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+        
+        const url = URL.createObjectURL(dataBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'site-data.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showSaveIndicator('Данные экспортированы!');
+    });
+
+    // Импорт данных
+    importDataBtn.addEventListener('click', () => {
+        importFile.click();
+    });
+
+    importFile.addEventListener('change', function(e) {
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    loadSiteData(data);
+                    showSaveIndicator('Данные импортированы!');
+                } catch (error) {
+                    alert('Ошибка при импорте данных: неверный формат файла');
+                }
+            }
+            
+            reader.readAsText(this.files[0]);
+            this.value = ''; // Сброс значения input
+        }
+    });
+
+    // Обработчики событий для редактирования карточек
+    contentArea.addEventListener('click', (e) => {
+        if (isViewMode) return;
+        
+        // Редактирование карточки
+        if (e.target.classList.contains('edit-card')) {
+            const card = e.target.closest('.card');
+            editCard(card);
+        }
+        
+        // Удаление карточки
+        if (e.target.classList.contains('delete-card')) {
+            const card = e.target.closest('.card');
+            if (confirm('Вы уверены, что хотите удалить эту карточку?')) {
+                card.remove();
+                saveData();
+            }
+        }
+    });
+}
 
 // Функции
 function createCard(title, text, imageSrc) {
@@ -229,25 +329,31 @@ function createCard(title, text, imageSrc) {
     card.className = 'card';
     card.dataset.id = nextCardId++;
     
+    const actionsHtml = !isViewMode ? `
+        <div class="card-actions">
+            <button class="card-action-btn edit-card" title="Редактировать">✏️</button>
+            <button class="card-action-btn delete-card" title="Удалить">🗑️</button>
+        </div>
+    ` : '';
+    
     card.innerHTML = `
         <h2>${title}</h2>
         <p>${text}</p>
         ${imageSrc ? `<img src="${imageSrc}" alt="${title}" class="card-image">` : ''}
-        <div class="card-actions">
-            <button class="card-action-btn edit-card">✏️</button>
-            <button class="card-action-btn delete-card">🗑️</button>
-        </div>
+        ${actionsHtml}
     `;
     
     contentArea.appendChild(card);
     
     // Добавляем класс editable, если мы в режиме редактирования
-    if (isEditing) {
+    if (isEditing && !isViewMode) {
         card.classList.add('editable');
     }
 }
 
 function editCard(card) {
+    if (isViewMode) return;
+    
     currentEditingCard = card;
     
     const title = card.querySelector('h2').textContent;
@@ -315,6 +421,8 @@ function openImageModal(imageSrc, title, description) {
 
 // Сохранение данных в localStorage
 function saveData() {
+    if (isViewMode) return;
+    
     const data = getSiteData();
     localStorage.setItem('siteData', JSON.stringify(data));
     
@@ -392,6 +500,8 @@ function createDemoCards() {
 
 // Показать индикатор сохранения
 function showSaveIndicator(message) {
+    if (isViewMode) return;
+    
     saveIndicator.textContent = message;
     saveIndicator.classList.add('show');
     
@@ -399,3 +509,23 @@ function showSaveIndicator(message) {
         saveIndicator.classList.remove('show');
     }, 3000);
 }
+
+// Загрузка темы из localStorage
+function loadTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Светлая тема';
+    }
+}
+
+// Функция для принудительного переключения режима (для отладки)
+window.toggleViewMode = function() {
+    if (isViewMode) {
+        localStorage.setItem('editPassword', 'true');
+        window.location.search = '?mode=edit';
+    } else {
+        window.location.search = '?mode=view';
+    }
+};
