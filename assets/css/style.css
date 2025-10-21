@@ -296,6 +296,92 @@ h1 {
     opacity: 1;
 }
 
+/* СТИЛИ ДЛЯ РЕЖИМА ПРОСМОТРА */
+.view-mode-indicator {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 25px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    z-index: 1002;
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    backdrop-filter: blur(10px);
+}
+
+.view-mode-indicator button {
+    background: rgba(255, 255, 255, 0.9);
+    color: #ff6b6b;
+    border: none;
+    border-radius: 15px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.view-mode-indicator button:hover {
+    background: white;
+    transform: scale(1.05);
+}
+
+/* Скрываем элементы редактирования в режиме просмотра */
+body.view-mode .edit-toggle,
+body.view-mode .edit-panel,
+body.view-mode .card-actions,
+body.view-mode .editable {
+    display: none !important;
+}
+
+/* Блокируем редактирование контента */
+body.view-mode .card {
+    cursor: default;
+}
+
+body.view-mode .card-image {
+    cursor: pointer; /* Оставляем курсор для открытия модального окна */
+}
+
+/* Водяной знак в режиме просмотра */
+body.view-mode::before {
+    content: "👁️ Режим просмотра";
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--accent-color), var(--button-bg));
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    z-index: 1000;
+    box-shadow: 0 2px 10px var(--card-shadow);
+}
+
+/* Анимация появления индикатора */
+@keyframes slideIn {
+    from {
+        transform: translateX(-50%) translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+.view-mode-indicator {
+    animation: slideIn 0.5s ease-out;
+}
+
 @media (max-width: 768px) {
     .edit-panel {
         width: 100%;
@@ -310,6 +396,27 @@ h1 {
         bottom: 100px;
         left: 20px;
         right: 20px;
+        text-align: center;
+    }
+    
+    .view-mode-indicator {
+        top: 10px;
+        left: 20px;
+        right: 20px;
+        transform: none;
+        text-align: center;
+        justify-content: center;
+    }
+    
+    body.view-mode::before {
+        bottom: 80px;
+        right: 50%;
+        transform: translateX(50%);
+    }
+    
+    header {
+        flex-direction: column;
+        gap: 15px;
         text-align: center;
     }
 }
