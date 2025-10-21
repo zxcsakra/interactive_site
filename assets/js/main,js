@@ -1,0 +1,401 @@
+// Элементы DOM
+const themeToggle = document.getElementById('themeToggle');
+const themeIcon = document.getElementById('themeIcon');
+const themeText = document.getElementById('themeText');
+const editToggle = document.getElementById('editToggle');
+const editPanel = document.getElementById('editPanel');
+const contentArea = document.getElementById('contentArea');
+const addCardBtn = document.getElementById('addCardBtn');
+const updateCardBtn = document.getElementById('updateCardBtn');
+const cancelEditBtn = document.getElementById('cancelEditBtn');
+const cardTitle = document.getElementById('cardTitle');
+const cardText = document.getElementById('cardText');
+const cardImage = document.getElementById('cardImage');
+const imagePreview = document.getElementById('imagePreview');
+const imageModal = document.getElementById('imageModal');
+const modalClose = document.getElementById('modalClose');
+const modalImage = document.getElementById('modalImage');
+const modalTitle = document.getElementById('modalTitle');
+const modalDescription = document.getElementById('modalDescription');
+const saveIndicator = document.getElementById('saveIndicator');
+const exportDataBtn = document.getElementById('exportDataBtn');
+const importDataBtn = document.getElementById('importDataBtn');
+const importFile = document.getElementById('importFile');
+
+// Переменные состояния
+let isEditing = false;
+let currentEditingCard = null;
+let nextCardId = 1;
+let saveTimeout = null;
+
+// Демо-данные
+const demoCards = [
+    {
+        title: "Добро пожаловать!",
+        text: "Это пример карточки. Вы можете редактировать содержимое, добавлять изображения и изменять внешний вид сайта.",
+        imageSrc: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80"
+    },
+    {
+        title: "О проекте",
+        text: "Этот сайт позволяет вам настраивать его внешний вид и содержимое. Используйте кнопку редактирования в правом нижнем углу, чтобы начать.",
+        imageSrc: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80"
+    }
+];
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+    loadData();
+    loadTheme();
+});
+
+// Переключение темы
+themeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark-theme');
+    
+    if (document.body.classList.contains('dark-theme')) {
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Светлая тема';
+        localStorage.setItem('theme', 'dark');
+    } else {
+        themeIcon.textContent = '🌙';
+        themeText.textContent = 'Темная тема';
+        localStorage.setItem('theme', 'light');
+    }
+    
+    saveData();
+});
+
+// Загрузка темы из localStorage
+function loadTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Светлая тема';
+    }
+}
+
+// Переключение режима редактирования
+editToggle.addEventListener('click', () => {
+    isEditing = !isEditing;
+    document.body.classList.toggle('editing', isEditing);
+    editPanel.classList.toggle('active', isEditing);
+    
+    // Добавляем или удаляем класс editable для карточек
+    document.querySelectorAll('.card').forEach(card => {
+        card.classList.toggle('editable', isEditing);
+    });
+    
+    // Сбрасываем форму редактирования
+    resetEditForm();
+});
+
+// Предпросмотр изображения
+cardImage.addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            imagePreview.src = e.target.result;
+            imagePreview.style.display = 'block';
+        }
+        
+        reader.readAsDataURL(this.files[0]);
+    }
+});
+
+// Добавление новой карточки
+addCardBtn.addEventListener('click', () => {
+    const title = cardTitle.value.trim();
+    const text = cardText.value.trim();
+    const imageSrc = imagePreview.src || '';
+    
+    if (!title) {
+        alert('Пожалуйста, введите заголовок карточки');
+        return;
+    }
+    
+    createCard(title, text, imageSrc);
+    resetEditForm();
+    saveData();
+});
+
+// Обновление существующей карточки
+updateCardBtn.addEventListener('click', () => {
+    if (!currentEditingCard) return;
+    
+    const title = cardTitle.value.trim();
+    const text = cardText.value.trim();
+    const imageSrc = imagePreview.src || currentEditingCard.querySelector('.card-image')?.src || '';
+    
+    if (!title) {
+        alert('Пожалуйста, введите заголовок карточки');
+        return;
+    }
+    
+    updateCard(currentEditingCard, title, text, imageSrc);
+    resetEditForm();
+    saveData();
+});
+
+// Отмена редактирования
+cancelEditBtn.addEventListener('click', resetEditForm);
+
+// Закрытие модального окна
+modalClose.addEventListener('click', () => {
+    imageModal.style.display = 'none';
+});
+
+// Закрытие модального окна при клике вне его
+imageModal.addEventListener('click', (e) => {
+    if (e.target === imageModal) {
+        imageModal.style.display = 'none';
+    }
+});
+
+// Экспорт данных
+exportDataBtn.addEventListener('click', () => {
+    const data = getSiteData();
+    const dataStr = JSON.stringify(data, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    
+    const url = URL.createObjectURL(dataBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'site-data.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showSaveIndicator('Данные экспортированы!');
+});
+
+// Импорт данных
+importDataBtn.addEventListener('click', () => {
+    importFile.click();
+});
+
+importFile.addEventListener('change', function(e) {
+    if (this.files && this.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                loadSiteData(data);
+                showSaveIndicator('Данные импортированы!');
+            } catch (error) {
+                alert('Ошибка при импорте данных: неверный формат файла');
+            }
+        }
+        
+        reader.readAsText(this.files[0]);
+        this.value = ''; // Сброс значения input
+    }
+});
+
+// Обработчики событий для карточек (делегирование)
+contentArea.addEventListener('click', (e) => {
+    // Редактирование карточки
+    if (e.target.classList.contains('edit-card')) {
+        const card = e.target.closest('.card');
+        editCard(card);
+    }
+    
+    // Удаление карточки
+    if (e.target.classList.contains('delete-card')) {
+        const card = e.target.closest('.card');
+        if (confirm('Вы уверены, что хотите удалить эту карточку?')) {
+            card.remove();
+            saveData();
+        }
+    }
+    
+    // Открытие изображения в модальном окне
+    if (e.target.classList.contains('card-image')) {
+        const card = e.target.closest('.card');
+        const title = card.querySelector('h2').textContent;
+        const description = card.querySelector('p').textContent;
+        const imageSrc = e.target.src;
+        
+        openImageModal(imageSrc, title, description);
+    }
+});
+
+// Функции
+function createCard(title, text, imageSrc) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.id = nextCardId++;
+    
+    card.innerHTML = `
+        <h2>${title}</h2>
+        <p>${text}</p>
+        ${imageSrc ? `<img src="${imageSrc}" alt="${title}" class="card-image">` : ''}
+        <div class="card-actions">
+            <button class="card-action-btn edit-card">✏️</button>
+            <button class="card-action-btn delete-card">🗑️</button>
+        </div>
+    `;
+    
+    contentArea.appendChild(card);
+    
+    // Добавляем класс editable, если мы в режиме редактирования
+    if (isEditing) {
+        card.classList.add('editable');
+    }
+}
+
+function editCard(card) {
+    currentEditingCard = card;
+    
+    const title = card.querySelector('h2').textContent;
+    const text = card.querySelector('p').textContent;
+    const image = card.querySelector('.card-image');
+    const imageSrc = image ? image.src : '';
+    
+    cardTitle.value = title;
+    cardText.value = text;
+    
+    if (imageSrc) {
+        imagePreview.src = imageSrc;
+        imagePreview.style.display = 'block';
+    } else {
+        imagePreview.style.display = 'none';
+    }
+    
+    addCardBtn.style.display = 'none';
+    updateCardBtn.style.display = 'inline-block';
+    cancelEditBtn.style.display = 'inline-block';
+}
+
+function updateCard(card, title, text, imageSrc) {
+    card.querySelector('h2').textContent = title;
+    card.querySelector('p').textContent = text;
+    
+    let image = card.querySelector('.card-image');
+    if (imageSrc) {
+        if (image) {
+            image.src = imageSrc;
+            image.alt = title;
+        } else {
+            image = document.createElement('img');
+            image.className = 'card-image';
+            image.src = imageSrc;
+            image.alt = title;
+            card.querySelector('p').after(image);
+        }
+    } else if (image) {
+        image.remove();
+    }
+    
+    currentEditingCard = null;
+}
+
+function resetEditForm() {
+    cardTitle.value = '';
+    cardText.value = '';
+    cardImage.value = '';
+    imagePreview.style.display = 'none';
+    
+    addCardBtn.style.display = 'inline-block';
+    updateCardBtn.style.display = 'none';
+    cancelEditBtn.style.display = 'none';
+    
+    currentEditingCard = null;
+}
+
+function openImageModal(imageSrc, title, description) {
+    modalImage.src = imageSrc;
+    modalTitle.textContent = title;
+    modalDescription.textContent = description;
+    imageModal.style.display = 'flex';
+}
+
+// Сохранение данных в localStorage
+function saveData() {
+    const data = getSiteData();
+    localStorage.setItem('siteData', JSON.stringify(data));
+    
+    // Отложенное сохранение
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        showSaveIndicator('Данные сохранены!');
+    }, 500);
+}
+
+// Загрузка данных из localStorage
+function loadData() {
+    const savedData = localStorage.getItem('siteData');
+    if (savedData) {
+        try {
+            const data = JSON.parse(savedData);
+            loadSiteData(data);
+        } catch (error) {
+            console.error('Ошибка при загрузке данных:', error);
+            createDemoCards();
+        }
+    } else {
+        createDemoCards();
+    }
+}
+
+// Получение данных сайта
+function getSiteData() {
+    const cards = [];
+    document.querySelectorAll('.card').forEach(card => {
+        const title = card.querySelector('h2').textContent;
+        const text = card.querySelector('p').textContent;
+        const image = card.querySelector('.card-image');
+        const imageSrc = image ? image.src : '';
+        
+        cards.push({
+            title,
+            text,
+            imageSrc
+        });
+    });
+    
+    return {
+        cards,
+        nextCardId,
+        theme: document.body.classList.contains('dark-theme') ? 'dark' : 'light'
+    };
+}
+
+// Загрузка данных сайта
+function loadSiteData(data) {
+    // Очищаем контент
+    contentArea.innerHTML = '';
+    nextCardId = 1;
+    
+    // Загружаем карточки
+    if (data.cards && data.cards.length > 0) {
+        data.cards.forEach(cardData => {
+            createCard(cardData.title, cardData.text, cardData.imageSrc);
+        });
+    }
+    
+    // Обновляем nextCardId
+    if (data.nextCardId) {
+        nextCardId = data.nextCardId;
+    }
+}
+
+// Создание демо-карточек
+function createDemoCards() {
+    demoCards.forEach(card => {
+        createCard(card.title, card.text, card.imageSrc);
+    });
+}
+
+// Показать индикатор сохранения
+function showSaveIndicator(message) {
+    saveIndicator.textContent = message;
+    saveIndicator.classList.add('show');
+    
+    setTimeout(() => {
+        saveIndicator.classList.remove('show');
+    }, 3000);
+}
